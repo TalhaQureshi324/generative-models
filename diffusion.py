@@ -96,7 +96,7 @@ class Diffusion(nn.Module):
 
         posterior_variance = (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod) * (1.0 - alphas)
         self.register_buffer("posterior_variance", posterior_variance)
-        self.register_buffer("posterior_mean_coef1", torch.sqrt(alphas) * alphas_cumprod_prev / (1.0 - alphas_cumprod))
+        self.register_buffer("posterior_mean_coef1", torch.sqrt(alphas) * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod))
         self.register_buffer("posterior_mean_coef2", torch.sqrt(alphas_cumprod_prev) * (1.0 - alphas) / (1.0 - alphas_cumprod))
     
     ##############################################
@@ -190,10 +190,21 @@ class Diffusion(nn.Module):
         # Hint: use gather_timestep_coeff function to get the coefficients at time t
         # Hint: use self.noise_like function to generate noise. DO NOT USE torch.randn
         # Begin code here
+        noise_pred = self.model(x, t)
+        x_0_pred = (
+            gather_timestep_coeff(self.sqrt_recip_alphas_cumprod, t, x.shape) * x
+            - gather_timestep_coeff(self.sqrt_recipm1_alphas_cumprod, t, x.shape) * noise_pred
+        )
+        x_0_pred = torch.clamp(x_0_pred, -1.0, 1.0)
+        model_mean = (
+            gather_timestep_coeff(self.posterior_mean_coef1, t, x.shape) * x
+            + gather_timestep_coeff(self.posterior_mean_coef2, t, x.shape) * x_0_pred
+        )
         if t_index == 0:
-            pass
-        else:
-            pass
+            return model_mean
+        posterior_var = gather_timestep_coeff(self.posterior_variance, t, x.shape)
+        noise = self.noise_like(x.shape, x.device)
+        return model_mean + torch.sqrt(posterior_var) * noise
 
     @torch.no_grad()
     def p_sample_loop(self, img):
@@ -211,6 +222,11 @@ class Diffusion(nn.Module):
         # 2. inside the loop, sample x_{t-1} from the reverse diffusion process
         # 3. clamp and unnormalize the generated image to valid pixel range
         # Hint: to get time index, you can use torch.full()
+        for t_index in reversed(range(self.num_timesteps)):
+            t = torch.full((b,), t_index, device=img.device, dtype=torch.long)
+            img = self.p_sample(img, t, t_index)
+        img = torch.clamp(img, -1.0, 1.0)
+        img = unnormalize_to_zero_to_one(img)
         return img
 
     @torch.no_grad()
@@ -224,5 +240,9 @@ class Diffusion(nn.Module):
         """
         #### TODO: Implement the sample function ####
         # Hint: use self.noise_like function to generate noise. DO NOT USE torch.randn
+        device = next(self.model.parameters()).device
+        img = self.noise_like(
+            (batch_size, self.channels, self.image_size, self.image_size), device
+        )
         return self.p_sample_loop(img)
         # ####################################################
