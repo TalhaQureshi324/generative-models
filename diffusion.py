@@ -117,6 +117,11 @@ class Diffusion(nn.Module):
         ##### TODO: Implement the q_sample function #######
         # x_t = ...
         # return x_t 
+        x_t = (
+            gather_timestep_coeff(self.sqrt_alphas_cumprod, t, x_0.shape) * x_0
+            + gather_timestep_coeff(self.sqrt_one_minus_alphas_cumprod, t, x_0.shape) * noise
+        )
+        return x_t
         
     def p_losses(self, x_0, t, noise):
         """
@@ -131,6 +136,9 @@ class Diffusion(nn.Module):
         ###### TODO: Implement the p_losses function #######
         # define loss function wrt. the model output and the target
         # Hint: you can use pytorch built-in loss functions: F.l1_loss
+        x_t = self.q_sample(x_0, t, noise)
+        noise_pred = self.model(x_t, t)
+        loss = F.l1_loss(noise, noise_pred)
 
         return loss
     
@@ -146,7 +154,8 @@ class Diffusion(nn.Module):
         b, c, h, w, device, img_size, = *x_0.shape, x_0.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         ##### TODO: Implement the forward function ########
-        pass
+        t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
+        return self.p_losses(x_0, t, noise)
 
     ############################################################
     # BACKWARD DIFFUSION
