@@ -1,4 +1,5 @@
 import os
+import csv
 import torch
 
 from torch.utils import data
@@ -121,6 +122,7 @@ class Trainer(object):
 
         self.results_folder = Path(results_folder)
         self.results_folder.mkdir(exist_ok=True)
+        self.metrics_path = self.results_folder / "metrics.csv"
 
         self.device = (
             device
@@ -147,6 +149,14 @@ class Trainer(object):
 
         self.step = data["step"]
         self.model.load_state_dict(data["model"])
+
+    def _log_metrics(self, step, loss, fid_value):
+        new_file = not self.metrics_path.exists()
+        with open(self.metrics_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            if new_file:
+                writer.writerow(["step", "loss", "fid"])
+            writer.writerow([step, loss, "" if fid_value is None else fid_value])
 
     def train(self):
         start_step = self.step
@@ -181,6 +191,7 @@ class Trainer(object):
             self.opt.step()
             self.opt.zero_grad()
 
+            fid_value = None
             if (self.step + 1) % self.save_and_sample_every == 0:
                 milestone = self.step // self.save_and_sample_every
                 save_folder = str(self.results_folder / f"sample_ddpm_{milestone}")
@@ -223,8 +234,10 @@ class Trainer(object):
 
                     fid_score = fid.compute_fid(save_folder, self.val_folder)
                     log_dir['fid'] = fid_score
+                    fid_value = fid_score
                 self.save()
 
+            self._log_metrics(self.step, log_dir['loss'], fid_value)
             wandb.log(log_dir)
 
         images = self.model.sample(self.batch_size)
