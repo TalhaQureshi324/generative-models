@@ -81,7 +81,23 @@ class Diffusion(nn.Module):
         # Hint: helpful to define both alpha_bar and alpha_bar_t_minus_1
         # Hint: at t = 0, alpha_bar = 1
         # Hint: what does PyTorch register_buffer do?
-        pass
+        alphas = cosine_schedule(self.num_timesteps)
+        alphas_cumprod = torch.cumprod(alphas, dim=0)
+        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
+
+        self.register_buffer("alphas", alphas)
+        self.register_buffer("alphas_cumprod", alphas_cumprod)
+        self.register_buffer("alphas_cumprod_prev", alphas_cumprod_prev)
+
+        self.register_buffer("sqrt_alphas_cumprod", torch.sqrt(alphas_cumprod))
+        self.register_buffer("sqrt_one_minus_alphas_cumprod", torch.sqrt(1.0 - alphas_cumprod))
+        self.register_buffer("sqrt_recip_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod))
+        self.register_buffer("sqrt_recipm1_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod - 1.0))
+
+        posterior_variance = (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod) * (1.0 - alphas)
+        self.register_buffer("posterior_variance", posterior_variance)
+        self.register_buffer("posterior_mean_coef1", torch.sqrt(alphas) * alphas_cumprod_prev / (1.0 - alphas_cumprod))
+        self.register_buffer("posterior_mean_coef2", torch.sqrt(alphas_cumprod_prev) * (1.0 - alphas) / (1.0 - alphas_cumprod))
     
     ##############################################
     # FORWARD DIFFUSION    
