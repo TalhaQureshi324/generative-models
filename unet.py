@@ -290,25 +290,36 @@ class Unet(nn.Module):
         # Downsample path — apply residual/attention blocks and store skip features in `h`.
         for block1, block2, attn, downsample in self.downs:
             # TODO: Apply the first residual block with time embedding to update `x`. Then, save this first skip feature for the upsampling path.
+            x = block1(x, t)
+            h.append(x)
 
             # TODO: Apply the second residual block, followed by attention at this resolution. Again, save the post-attention skip feature.
+            x = block2(x, t)
+            x = attn(x)
+            h.append(x)
 
             # TODO: Downsample `x` for the next resolution level.
-
-            pass
+            x = downsample(x)
 
 
         # TODO: Bottleneck — process `x` with mid_block1, mid_attn, and mid_block2 - in order.
+        x = self.mid_block1(x, t)
+        x = self.mid_attn(x)
+        x = self.mid_block2(x, t)
 
         # Upsample path — combine `x` with skips from `h` and restore resolution.
         for block1, block2, attn, upsample in self.ups:
             # TODO: Concatenate the next skip feature from `h` before the first up block.Then apply the first upsampling residual block with time embedding `t`.
+            x = torch.cat((x, h.pop()), dim = 1)
+            x = block1(x, t)
 
             # TODO: Concatenate the next skip feature from `h` before the second up block.Then, apply the second upsampling residual block.
-            
+            x = torch.cat((x, h.pop()), dim = 1)
+            x = block2(x, t)
+
             # TODO: Apply attention at this resolution and upsample `x` to the next higher resolution.
-            
-            pass
+            x = attn(x)
+            x = upsample(x)
 
         x = torch.cat((x, r), dim = 1)
 
