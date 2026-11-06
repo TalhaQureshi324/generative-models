@@ -45,7 +45,9 @@ if __name__ == "__main__":
         if args.load_path is None:
             print("No model to visualize, Please provide a load path.")
             exit(0)
-        visualize_diffusion(vars(args))
+        args_dict = vars(args)
+        args_dict.pop('visualize')
+        visualize_diffusion(**args_dict)
     else:
         args_dict = vars(args)
         args_dict.pop('visualize')

@@ -300,22 +300,18 @@ class Trainer(object):
                 img_backward.append(img_vis)
 
         # Convert forward diffusion batches to grids
-        forward_grids = [
-            wandb.Image(
-                utils.make_grid(batch, nrow=8, normalize=True, scale_each=True),
-                caption=f"Forward diffusion t={t}"
-            )
-            for batch, t in zip(img_forward, t_visualize)
-        ]
+        forward_grids = []
+        for batch, t in zip(img_forward, t_visualize):
+            grid = utils.make_grid(batch, nrow=8, normalize=True, scale_each=True)
+            utils.save_image(grid, os.path.join(self.results_folder, f"forward_t{t}.png"))
+            forward_grids.append(wandb.Image(grid, caption=f"Forward diffusion t={t}"))
 
         # Convert backward diffusion batches to grids
-        backward_grids = [
-            wandb.Image(
-                utils.make_grid(batch, nrow=8, normalize=True, scale_each=True),
-                caption=f"Backward diffusion t={t}"
-            )
-            for batch, t in zip(img_backward, reversed(t_visualize))
-        ]
+        backward_grids = []
+        for batch, t in zip(img_backward, reversed(t_visualize)):
+            grid = utils.make_grid(batch, nrow=8, normalize=True, scale_each=True)
+            utils.save_image(grid, os.path.join(self.results_folder, f"backward_t{t}.png"))
+            backward_grids.append(wandb.Image(grid, caption=f"Backward diffusion t={t}"))
 
         # save the images in wandb
         wandb.log({
