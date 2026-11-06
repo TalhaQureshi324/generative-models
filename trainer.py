@@ -232,7 +232,7 @@ class Trainer(object):
                             img = img.resize((self.image_size, self.image_size))
                             img.save(os.path.join(self.val_folder, img_name))
 
-                    fid_score = fid.compute_fid(save_folder, self.val_folder)
+                    fid_score = fid.compute_fid(save_folder, self.val_folder, device=self.device)
                     log_dir['fid'] = fid_score
                     fid_value = fid_score
                 self.save()
